@@ -1,3 +1,21 @@
+/*
+BanMeOnTheServer - The RolePlay ban plugin for Bukkit servers
+Copyright (C) 2013 Hybris95
+hybris_95@hotmail.com
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+*/
 package com.hybris.bukkit.banMeOnTheServer;
 
 import org.bukkit.plugin.java.JavaPlugin;
@@ -6,6 +24,7 @@ import java.util.HashMap;
 import org.bukkit.event.Listener;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
+import org.bukkit.event.HandlerList;
 
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
@@ -26,10 +45,13 @@ import java.io.FileNotFoundException;
 import org.bukkit.entity.Entity;
 import org.bukkit.event.entity.EntityDamageEvent;
 
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+
 public class BanMeOnTheServer extends JavaPlugin implements Listener
 {
     // Fichier où les joueurs bannis seront enregistrés
-	private static final String DIR = "plugins"+File.separator+"BMOTS";
+    private static final String DIR = "plugins"+File.separator+"BMOTS";
 	private static final String DATFILE = "BannedPlayers.dat";
 	private static final String BAKFILE = "BannedPlayers.dat.bak";
 	private static final String DATPATH = DIR+File.separator+DATFILE;
@@ -95,6 +117,7 @@ public class BanMeOnTheServer extends JavaPlugin implements Listener
 		PluginManager pm = this.getServer().getPluginManager();
 		pm.registerEvents(this, this);
 		pm.registerEvents(this.disallow, this);
+		this.getCommand("bmots").setExecutor(this);
 		
 		// Lancer le processus d'écoute des commandes des bannis
 		// Lancer le processus d'écoute des logins/déconnexion
@@ -159,6 +182,10 @@ public class BanMeOnTheServer extends JavaPlugin implements Listener
 		// Stopper le processus d'écoute des logins/déconnexion
 		// Stopper le processus d'écoute des commandes des bannis
 		this.listening = false;
+		
+		// Désenregistrer les evenements
+		HandlerList.unregisterAll((JavaPlugin)this);
+		this.getCommand("bmots").setExecutor(null);
 		
 		// Backup du fichier BannedPlayers.dat
 		File bakFile = new File(BAKPATH);
@@ -322,85 +349,101 @@ public class BanMeOnTheServer extends JavaPlugin implements Listener
 			return;
 		}
 	}
+    
+    private boolean hasPermissions(CommandSender sender, String node)
+    {
+		if(sender instanceof Player)
+		{
+			Player playerSender = (Player)sender;
+			node = "banmeontheserver." + node;
+			return playerSender.hasPermission(node) || playerSender.isOp();
+		}
+		else
+		{
+			return sender.isOp();
+		}
+    }
 	
-	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
-	public void parseStdCmds(PlayerCommandPreprocessEvent event)
+	public boolean onCommand(CommandSender sender, Command command, String label, String[] args)
 	{
 		// Ne parser que si l'on est lancé
 		if(!this.listening)
 		{
-			return;
+			return false;
 		}
 		
 		// Ne parser que les commandes de "BanMeOnTheServer"
-		String command = event.getMessage();
-		if(!command.toLowerCase().startsWith("/bmots "))
+		if(!command.getName().equalsIgnoreCase("bmots"))
 		{
-			return;
+			return false;
 		}
 		
-		// Recuperation du joueur ayant lancé la commande bmots
-		Player sender = event.getPlayer();
-		
 		// Vérifier si le joueur a les droits d'utiliser cette commande admin (Operateur)
-		if(!sender.isOp())
+		if(!hasPermissions(sender, "admin"))
 		{
-			event.setCancelled(true);
-			return;
+			return false;
+		}
+		
+		// Vérifier que le nombre d'arguments minimum est respecté
+		if(args.length <= 0)
+		{
+			return false;
 		}
 		
 		// Parser la commande
-		String[] splittedCmd = command.split(" ", 3);
-		String subCommand = splittedCmd[1];
+		String subCommand = args[0];
 		
 		// Ajouter ou retirer le ban
-		String bannedPlayerName = null;
 		if(subCommand.equalsIgnoreCase("add"))
 		{
 			// Récupérer le nom du joueur à ban ainsi que la durée de la peine
-			if(splittedCmd.length != 3)
+			if(args.length != 3)
 			{
-				event.setCancelled(true);
-				return;
+				return false;
 			}
-			String[] nameAndDuration = splittedCmd[2].split(" ", 2);
-			if(nameAndDuration.length != 2)
-			{
-				event.setCancelled(true);
-				return;
-			}
+			
+			String name = args[1];
+			String durationS = args[2];
+			
 			try{
-				long duration = Integer.parseInt(nameAndDuration[1]) * 1000;
-				bannedPlayerName = nameAndDuration[0];
-				this.newBan(bannedPlayerName, duration);
+				long duration = Integer.parseInt(durationS) * 1000;
+				this.newBan(name, duration);
+				return true;
 			}
 			catch(NumberFormatException e)
 			{
-				event.setCancelled(true);
-				return;
+				return false;
 			}
 		}
 		else if(subCommand.equalsIgnoreCase("remove"))
 		{
 			// Récuperer le nom du joueur à deban
-			if(splittedCmd.length != 3)
+			if(args.length != 2)
 			{
-				event.setCancelled(true);
-				return;
+				return false;
 			}
-			bannedPlayerName = splittedCmd[2];
-			this.removeBan(bannedPlayerName);
+			
+			this.removeBan(args[1]);
+			return true;
 		}
 		else if(subCommand.equalsIgnoreCase("list"))
 		{
 			// Lister au joueur appelant les joueurs bannis, leur durée et leur état de connexion
-			sender.sendMessage("[BanMeOnTheServer] Liste des bannis :");
+			StringBuilder banList = new StringBuilder();
+			banList.append("[BanMeOnTheServer] Liste des bannis :" + System.getProperty("line.separator"));
 			Object[] bannedPlayers = this.currentTime.entrySet().toArray();
 			for(int i = 0; i < bannedPlayers.length; i++)
 			{
-				sender.sendMessage(bannedPlayers[i].toString() + " reste " + this.timeLeft(bannedPlayers[i].toString()) + "ms");
+				banList.append(bannedPlayers[i].toString());
+				banList.append(" reste ");
+				banList.append(this.timeLeft(bannedPlayers[i].toString()));
+				banList.append("ms");
+				banList.append(System.getProperty("line.separator"));
 			}
+			sender.sendMessage(banList.toString());
+			return true;
 		}
+		return false;
 	}
 	
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
