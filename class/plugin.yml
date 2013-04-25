@@ -1,0 +1,11 @@
+name: BanMeOnTheServer
+main: com.hybris.bukkit.banMeOnTheServer.BanMeOnTheServer
+version: 1.2
+website: 
+author: Hybris95
+description: 
+             Allow admins to "ban" (disallow commands/disable death) for given users for a given time, the banned user has to stay on the server if he wishes to pay his punishment
+commands:
+    bmots:
+        description: To use BanMeOnTheServer functionnalities if Operator
+        usage: /bmots add [Name] [Time in seconds] | /bmots remove [Name] | /bmots list
