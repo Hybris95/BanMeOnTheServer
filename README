@@ -1,0 +1,6 @@
+BanMeOnTheServer allows server admins of a CraftBukkit server to disallow someone from typing any command.
+The user can only reduce the ammount of time required to be free by being online.
+
+You can compile on Linux by using BanMeOnTheServer-compile.bash
+You can compile on Windows by using BanMeOnTheServer-compile.bat
+
