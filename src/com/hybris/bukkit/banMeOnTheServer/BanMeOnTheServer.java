@@ -334,18 +334,28 @@ public class BanMeOnTheServer extends JavaPlugin implements Listener
 		{
 			return;
 		}
+        
+        // Récupérer l'objet Player du joueur lançant la commande
+        Player sender = event.getPlayer();
 		
 		// Récupérer le nom du joueur lançant la commande
-		String name = event.getPlayer().getName();
+		String name = sender.getName();
 		
 		// Si le joueur est banni
 		if(this.isBanned(name))
 		{
+            // Droit de bypass avec le node banmeontheserver.bypass
+            if(this.hasPermissions(sender, "bypass"))
+            {
+                sender.sendMessage("[BanMeOnTheServer] You bypassed the ban which is left for : " + this.timeLeft(name));
+                return;
+            }
+            
 			// L'empêcher de lancer la commande
 			event.setCancelled(true);
 			
 			// Lui donner son temps restant
-			event.getPlayer().sendMessage("[BanMeOnTheServer] Time Left : " + this.timeLeft(name));
+			sender.sendMessage("[BanMeOnTheServer] Time Left : " + this.timeLeft(name));
 			return;
 		}
 	}
